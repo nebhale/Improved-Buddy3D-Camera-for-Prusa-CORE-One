@@ -82,56 +82,7 @@ of the same G-code still receive distinct session names.
 > high-frequency stream. Alternatively, reboot the printer. The new profile
 > does not enable `pos_z`.
 
-## Step 3 — Add the After-Layer Marker
-
-In **Printer Settings > Custom G-code > After layer change G-code**, add:
-
-```gcode
-; === Timelapse Layer Capture ===
-M400
-M331 gcode
-M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
-G4 P100
-M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
-M332 gcode
-```
-
-This is all that layer mode requires. `M400` waits for the completed layer's
-queued motion before sending the marker. The two identical markers make a lost
-UDP datagram less likely to cost a frame, while `{layer_num}` lets the camera
-deduplicate them. The G-code metric is disabled again immediately.
-
-This minimal version does **not** wait for the camera. The printer can start the
-next layer while the fresh snapshot is being acquired, so the print head may be
-visible or moving in the resulting frame.
-
-### Optional — Park the Head for Cleaner Frames
-
-If consistent head-free frames matter more than the added print time, replace
-the minimal block above with:
-
-```gcode
-; === Timelapse Layer Capture with Optional Parking ===
-G10
-G1 X0 Y210 F9000
-M400
-G4 P500
-M331 gcode
-M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
-G4 P100
-M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
-M332 gcode
-G4 P5000
-G1 X{first_layer_print_min[0]} Y{first_layer_print_min[1]} F9000
-G11
-```
-
-This version retracts, parks the head, waits 500 ms for vibration to settle,
-and holds the position for five seconds while the camera captures. The
-`G4 P5000` dwell is optional: shorten or remove it to trade composition
-consistency for faster printing.
-
-## Step 4 — Add the Completion Marker
+## Step 3 — Add the Completion Marker
 
 Add the following at the **very beginning** of **End G-code**, before the
 profile's existing shutdown commands. Do not replace those existing commands.
@@ -159,6 +110,55 @@ following original End G-code can then shut down and park the printer as usual.
 A cancelled or power-interrupted print cannot send this marker; its session
 remains open, but the next `START` always closes it and begins a new uniquely
 named session.
+
+## Step 4 — Add the Lightweight After-Layer Marker
+
+In **Printer Settings > Custom G-code > After layer change G-code**, add:
+
+```gcode
+; === Camera Timelapse Layer Capture ===
+M400
+M331 gcode
+M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
+G4 P100
+M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
+M332 gcode
+```
+
+This is all that layer mode requires. `M400` waits for the completed layer's
+queued motion before sending the marker. The two identical markers make a lost
+UDP datagram less likely to cost a frame, while `{layer_num}` lets the camera
+deduplicate them. The G-code metric is disabled again immediately.
+
+This minimal version does **not** wait for the camera. The printer can start the
+next layer while the fresh snapshot is being acquired, so the print head may be
+visible or moving in the resulting frame.
+
+### Parked Layer Capture
+
+If consistent head-free frames matter more than the added print time, replace
+the minimal block above with:
+
+```gcode
+; === Camera Timelapse Layer Capture with Parking ===
+G10
+G1 X0 Y210 F9000
+M400
+G4 P500
+M331 gcode
+M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
+G4 P100
+M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
+M332 gcode
+G4 P5000
+G1 X{first_layer_print_min[0]} Y{first_layer_print_min[1]} F9000
+G11
+```
+
+This version retracts, parks the head, waits 500 ms for vibration to settle,
+and holds the position for five seconds while the camera captures. The
+`G4 P5000` dwell is optional: shorten or remove it to trade composition
+consistency for faster printing.
 
 ## Step 5 — Save as a Printer Profile
 
@@ -220,6 +220,7 @@ enough to transmit two copies of its marker.
 
 ### Start G-code (add at end)
 ```gcode
+; === Camera Timelapse Start ===
 M334 <camera_ip> 8514 13514
 M331 gcode
 M118 BUDDY_TIMELAPSE_START:{input_filename_base}
@@ -228,34 +229,9 @@ M118 BUDDY_TIMELAPSE_START:{input_filename_base}
 M332 gcode
 ```
 
-### After layer change G-code (required for layer mode)
-```gcode
-M400
-M331 gcode
-M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
-G4 P100
-M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
-M332 gcode
-```
-
-### Optional parked-head replacement
-```gcode
-G10
-G1 X0 Y210 F9000
-M400
-G4 P500
-M331 gcode
-M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
-G4 P100
-M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
-M332 gcode
-G4 P5000
-G1 X{first_layer_print_min[0]} Y{first_layer_print_min[1]} F9000
-G11
-```
-
 ### End G-code (add at beginning)
 ```gcode
+; === Camera Timelapse Complete ===
 G10
 G90
 {if layer_z < max_print_height}G1 Z{z_offset+min(max_layer_z+1, max_print_height)} F720{endif}
@@ -268,6 +244,34 @@ G4 P100
 M118 BUDDY_TIMELAPSE_COMPLETE:{total_layer_count}
 M332 gcode
 G4 P5000
+```
+
+### After layer change G-code (lightweight)
+```gcode
+; === Camera Timelapse Layer Capture ===
+M400
+M331 gcode
+M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
+G4 P100
+M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
+M332 gcode
+```
+
+### After layer change G-code (parked-head replacement)
+```gcode
+; === Camera Timelapse Layer Capture with Parking ===
+G10
+G1 X0 Y210 F9000
+M400
+G4 P500
+M331 gcode
+M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
+G4 P100
+M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
+M332 gcode
+G4 P5000
+G1 X{first_layer_print_min[0]} Y{first_layer_print_min[1]} F9000
+G11
 ```
 
 ### One-time action

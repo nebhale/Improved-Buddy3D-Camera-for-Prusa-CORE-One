@@ -119,7 +119,7 @@ Layer capture uses the explicit `M118` marker proposed in [issue #2](https://git
 4. It captures a fresh frame for each layer and completion marker
 5. Snapshots are saved as numbered JPEG frames in a session folder on the SD card
 
-### PrusaSlicer Setup
+### Start G-code
 
 Add the following to the **end** of your **Start G-code** in PrusaSlicer (Printer Settings > Custom G-code):
 
@@ -147,53 +147,9 @@ If you are upgrading from the older Z-based setup and have not rebooted the
 printer, run `M332 pos_z` once to stop the old Z stream. A reboot also clears
 that runtime metric selection; the new setup never enables it.
 
-### Layer Marker and Optional Head Parking
+### End G-code
 
-For layer mode, add this to your **After layer change G-code**:
-
-```gcode
-M400
-M331 gcode
-M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
-G4 P100
-M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
-M332 gcode
-```
-
-This is the required layer-marker block. `M400` lets the completed layer finish
-physically before the marker is sent, but the printer is free to continue as
-soon as the marker block ends. The camera may therefore catch the print head
-moving into or printing the next layer.
-
-For a cleaner, more consistent composition, you can **optionally replace** that
-block with this parked-head version:
-
-```gcode
-G10
-G1 X0 Y210 F9000
-M400
-G4 P500
-M331 gcode
-M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
-G4 P100
-M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
-M332 gcode
-G4 P5000
-G1 X{first_layer_print_min[0]} Y{first_layer_print_min[1]} F9000
-G11
-```
-
-“After” is intentional: PrusaSlicer has already raised Z for the upcoming
-layer but has not extruded it yet, giving the parked XY move clearance above
-the layer being photographed.
-
-The optional version retracts and parks the print head, allows vibration to
-settle, and holds it there for five seconds while the camera captures. You can
-shorten or remove that dwell if the extra print time is not worthwhile. The
-duplicate marker protects against UDP loss, and the layer number prevents
-duplicate frames in either version.
-
-Finally, add this at the **beginning** of your **End G-code**, before the existing
+Next, add this at the **beginning** of your **End G-code**, before the existing
 shutdown commands:
 
 ```gcode
@@ -217,6 +173,56 @@ session. Its five-second dwell happens once at print completion, not after each
 layer. The three marker types define the complete session lifecycle. If a print
 is interrupted before `COMPLETE`, the next `START` closes its session and
 creates a new, uniquely named one.
+
+### Lightweight Layer Capture
+
+For layer mode, add this to your **After layer change G-code**:
+
+```gcode
+; === Camera Timelapse Layer Capture ===
+M400
+M331 gcode
+M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
+G4 P100
+M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
+M332 gcode
+```
+
+This is the required layer-marker block. `M400` lets the completed layer finish
+physically before the marker is sent, but the printer is free to continue as
+soon as the marker block ends. The camera may therefore catch the print head
+moving into or printing the next layer.
+
+### Parked Layer Capture
+
+For a cleaner, more consistent composition, **replace** the lightweight block
+with this parked-head version:
+
+```gcode
+; === Camera Timelapse Layer Capture with Parking ===
+G10
+G1 X0 Y210 F9000
+M400
+G4 P500
+M331 gcode
+M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
+G4 P100
+M118 BUDDY_TIMELAPSE_LAYER:{layer_num}
+M332 gcode
+G4 P5000
+G1 X{first_layer_print_min[0]} Y{first_layer_print_min[1]} F9000
+G11
+```
+
+“After” is intentional: PrusaSlicer has already raised Z for the upcoming
+layer but has not extruded it yet, giving the parked XY move clearance above
+the layer being photographed.
+
+The optional version retracts and parks the print head, allows vibration to
+settle, and holds it there for five seconds while the camera captures. You can
+shorten or remove that dwell if the extra print time is not worthwhile. The
+duplicate marker protects against UDP loss, and the layer number prevents
+duplicate frames in either version.
 
 See [`sdcard/docs/prusaslicer_setup.md`](sdcard/docs/prusaslicer_setup.md) for the full setup guide.
 
