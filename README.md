@@ -127,9 +127,9 @@ Add the following to the **end** of your **Start G-code** in PrusaSlicer (Printe
 ; === Camera Timelapse Start ===
 M334 <camera_ip> 8514 13514
 M331 gcode
-M118 BUDDY_TIMELAPSE_START
+M118 BUDDY_TIMELAPSE_START:{input_filename_base}
 G4 P100
-M118 BUDDY_TIMELAPSE_START
+M118 BUDDY_TIMELAPSE_START:{input_filename_base}
 M332 gcode
 ```
 
@@ -140,6 +140,8 @@ to approve it. Tap **Yes**. The `M334` destination persists across reboots.
 `M331` and `M332` enable the G-code metric only for the short marker window.
 The duplicate marker protects against UDP loss. Every new start event creates a
 new session and supersedes an unterminated session from an interrupted print.
+The camera combines its print-time timestamp with `{input_filename_base}` for a
+descriptive, unique directory such as `20260918_143027_gearbox-cover`.
 
 If you are upgrading from the older Z-based setup and have not rebooted the
 printer, run `M332 pos_z` once to stop the old Z stream. A reboot also clears

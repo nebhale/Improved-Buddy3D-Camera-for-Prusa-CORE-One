@@ -66,6 +66,7 @@
 #define LAYER_MARKER       "M118 BUDDY_TIMELAPSE_LAYER"
 #define COMPLETE_MARKER    "M118 BUDDY_TIMELAPSE_COMPLETE"
 #define START_DEDUPE_SECS  2
+#define MAX_PRINT_DESCRIPTION 40
 
 typedef enum { IDLE, PRINTING, FINALIZING } PrintState;
 typedef enum { MODE_LAYER, MODE_INTERVAL } CaptureMode;
@@ -442,18 +443,74 @@ static int take_snapshot(long layer_id, int has_layer_id) {
  * Print Session Management
  * ============================================================ */
 
-static void choose_print_id(time_t start_time) {
+static void extract_print_description(const char *command, char *description,
+                                      size_t description_size) {
+    const char *marker = strstr(command, START_MARKER);
+    if (description_size == 0) return;
+    description[0] = '\0';
+    if (!marker) return;
+
+    const char *source = marker + strlen(START_MARKER);
+    while (*source == ' ' || *source == ':' || *source == '=') source++;
+
+    /* An unexpanded placeholder is less useful than the timestamp-only
+       fallback and should not become part of a directory name. */
+    static const char unresolved[] = "{input_filename_base}";
+    if (strncmp(source, unresolved, sizeof(unresolved) - 1) == 0) {
+        const char *after = source + sizeof(unresolved) - 1;
+        while (*after == ' ' || *after == '\t') after++;
+        if (*after == '\0' || *after == '"' || *after == '\r' ||
+            *after == '\n') {
+            return;
+        }
+    }
+
+    size_t used = 0;
+    int separator_pending = 0;
+    while (*source && *source != '"' && *source != '\r' && *source != '\n') {
+        unsigned char ch = (unsigned char)*source++;
+        int alphanumeric = ((ch >= 'A' && ch <= 'Z') ||
+                            (ch >= 'a' && ch <= 'z') ||
+                            (ch >= '0' && ch <= '9'));
+        if (!alphanumeric) {
+            if (used > 0) separator_pending = 1;
+            continue;
+        }
+
+        if (separator_pending) {
+            /* Leave room for both the separator and the next character. */
+            if (used + 2 >= description_size) break;
+            description[used++] = '-';
+            separator_pending = 0;
+        } else if (used + 1 >= description_size) {
+            break;
+        }
+        description[used++] = (char)ch;
+    }
+    description[used] = '\0';
+}
+
+static void choose_print_id(time_t start_time, const char *description) {
     struct tm *t = localtime(&start_time);
     char base_id[32];
+    char descriptive_id[64];
     char candidate[64];
     char path[MAX_PATH_LEN];
 
     strftime(base_id, sizeof(base_id), "%Y%m%d_%H%M%S", t);
+    if (description[0]) {
+        snprintf(descriptive_id, sizeof(descriptive_id), "%s_%s", base_id,
+                 description);
+    } else {
+        snprintf(descriptive_id, sizeof(descriptive_id), "%s", base_id);
+    }
+
     for (int suffix = 0; suffix < 1000; suffix++) {
         if (suffix == 0) {
-            snprintf(candidate, sizeof(candidate), "%s", base_id);
+            snprintf(candidate, sizeof(candidate), "%s", descriptive_id);
         } else {
-            snprintf(candidate, sizeof(candidate), "%s_%02d", base_id, suffix);
+            snprintf(candidate, sizeof(candidate), "%s_%02d", descriptive_id,
+                     suffix);
         }
         snprintf(path, sizeof(path), "%s/%s", config.output_dir, candidate);
         if (access(path, F_OK) != 0) {
@@ -466,10 +523,10 @@ static void choose_print_id(time_t start_time) {
              (long)start_time);
 }
 
-static void start_print_session(void) {
+static void start_print_session(const char *description) {
     state.state = PRINTING;
     state.print_start_time = time(NULL);
-    choose_print_id(state.print_start_time);
+    choose_print_id(state.print_start_time, description);
 
     state.frame_counter = 0;
     state.last_interval_snap = time(NULL);
@@ -513,6 +570,9 @@ static void end_print_session(const char *reason) {
 static void handle_start_marker(const char *command) {
     if (!strstr(command, START_MARKER)) return;
 
+    char description[MAX_PRINT_DESCRIPTION + 1];
+    extract_print_description(command, description, sizeof(description));
+
     time_t now = time(NULL);
     if (state.last_start_marker_time > 0 &&
         difftime(now, state.last_start_marker_time) < START_DEDUPE_SECS) {
@@ -526,7 +586,7 @@ static void handle_start_marker(const char *command) {
         LOG_WARN("New start marker supersedes active session %s", state.print_id);
         end_print_session("superseded by new start marker");
     }
-    start_print_session();
+    start_print_session(description);
 }
 
 static void handle_layer_marker(const char *command) {

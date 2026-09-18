@@ -815,15 +815,20 @@ Add these lines to the <b>end</b> of your Start G-code in PrusaSlicer
 <pre style="background:#1a1a2e;padding:12px;border-radius:6px;font-size:.82em;color:#ccc;overflow-x:auto;line-height:1.6">; === Camera Timelapse Start ===
 M334 ${CAM_IP} 8514 13514
 M331 gcode
-M118 BUDDY_TIMELAPSE_START
+M118 BUDDY_TIMELAPSE_START:{input_filename_base}
 G4 P100
-M118 BUDDY_TIMELAPSE_START
+M118 BUDDY_TIMELAPSE_START:{input_filename_base}
 M332 gcode</pre>
 <div class="note" style="margin-top:10px">
 The printer asks you to approve a new metrics destination. The destination persists
 across power cycles. The G-code metric is enabled only around each marker. Every
 new <code>START</code> closes an unterminated session and creates a new run; the
 duplicate marker protects against UDP loss.
+</div>
+<div class="note" style="margin-top:10px">
+The camera combines its print-time timestamp with <code>{input_filename_base}</code>
+for a descriptive, unique session directory such as
+<code>20260918_143027_gearbox-cover</code>.
 </div>
 <div class="note" style="margin-top:10px">
 Upgrading from the older Z-based setup without rebooting? Run
@@ -1293,7 +1298,7 @@ HTMLEOF
     fi
     echo '</div>'
 
-    # Print timelapse sessions — list timelapse dir, filter for session-format names (YYYYMMDD_HHMMSS)
+    # Print timelapse sessions — timestamp-prefixed names (YYYYMMDD_HHMMSS...)
     PT_COUNT=0
     [ -d "$SD/timelapse" ] && PT_COUNT=$(ls -1 "$SD/timelapse/" 2>/dev/null | grep -c '^[0-9]*_[0-9]')
     echo '<div class="card"><h2>Print Timelapses ('"$PT_COUNT"')</h2>'

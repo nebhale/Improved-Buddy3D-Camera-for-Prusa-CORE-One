@@ -48,9 +48,9 @@ This points metrics at the camera and sends an unambiguous session-start event.
 ; === Camera Timelapse Start ===
 M334 192.168.1.100 8514 13514
 M331 gcode
-M118 BUDDY_TIMELAPSE_START
+M118 BUDDY_TIMELAPSE_START:{input_filename_base}
 G4 P100
-M118 BUDDY_TIMELAPSE_START
+M118 BUDDY_TIMELAPSE_START:{input_filename_base}
 M332 gcode
 ```
 
@@ -62,8 +62,14 @@ M332 gcode
 |------|---------|
 | `M334 192.168.1.100 8514 13514` | Tells the printer to send metrics to your camera on UDP port 8514 (metrics) and 13514 (logs) |
 | `M331 gcode` | Temporarily exposes the following G-code commands as metrics |
-| `M118 BUDDY_TIMELAPSE_START` | Starts a new camera session; the second copy protects against UDP loss |
+| `M118 BUDDY_TIMELAPSE_START:{input_filename_base}` | Starts a session named for the source model; the second copy protects against UDP loss |
 | `M332 gcode` | Stops the high-volume G-code metric immediately after the marker window |
+
+The camera combines its current timestamp with the model name, producing a
+session directory such as `20260918_143027_gearbox-cover`. It sanitizes the
+name for safe storage and falls back to the timestamp when no usable name is
+provided. The camera supplies the timestamp at print time, so repeated prints
+of the same G-code still receive distinct session names.
 
 > **Note:** The first time you use a new metrics destination, the printer will
 > ask you to approve it. The `M334` destination is saved in the printer and
@@ -216,9 +222,9 @@ enough to transmit two copies of its marker.
 ```gcode
 M334 <camera_ip> 8514 13514
 M331 gcode
-M118 BUDDY_TIMELAPSE_START
+M118 BUDDY_TIMELAPSE_START:{input_filename_base}
 G4 P100
-M118 BUDDY_TIMELAPSE_START
+M118 BUDDY_TIMELAPSE_START:{input_filename_base}
 M332 gcode
 ```
 
