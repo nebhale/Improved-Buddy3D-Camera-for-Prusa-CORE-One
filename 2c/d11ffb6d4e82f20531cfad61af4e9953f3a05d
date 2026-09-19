@@ -1,0 +1,30 @@
+sdcard/web/handler.sh
+  s_7922514fd7f137::t_468d5a503b41f7 907-908,920-921
+  s_7922514fd7f137::t_3f29ac9784a105 884-903,916
+  s_7922514fd7f137::t_e48d81fbe4e657 63-93,253-255,283-285,287-293,459,475,815,817,1358-1359
+sdcard/docs/prusaslicer_setup.md
+  s_7922514fd7f137::t_001b58b5dd46f8 232,234-238,240,242,244,246,249,251,260,262,268,270,273-274
+  s_7922514fd7f137::t_873c686212e4a8 85-114,137
+  s_7922514fd7f137::t_468d5a503b41f7 119,143,223
+README.md
+  s_7922514fd7f137::t_468d5a503b41f7 182,202
+  s_7922514fd7f137::t_ab20039372dc47 122,150
+  s_7922514fd7f137::t_6ef9a9ee45cfb9 152-177,196-199
+  s_7922514fd7f137::t_d175f692da8de3 151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2cd11ffb6d4e82f20531cfad61af4e9953f3a05d",
+  "prompts": {},
+  "sessions": {
+    "s_7922514fd7f137": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b2b6-e3c9-7ad2-b779-dcb5da5120b2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Ben Hale <nebhale@nebhale.com>"
+    }
+  }
+}
